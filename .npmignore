@@ -1,0 +1,26 @@
+# Test files
+__tests__/
+*.test.js
+coverage/
+jest.config.js
+
+# Development files
+.git/
+.gitignore
+.github/
+
+# Output and runtime files
+output/
+*.log
+
+# Editor and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Other
+*.tgz
+.npmrc

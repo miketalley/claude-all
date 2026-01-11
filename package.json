@@ -17,13 +17,15 @@
     "lib/",
     ".claude/",
     "README.md",
-    "CLAUDE.md"
+    "CLAUDE.md",
+    "LICENSE"
   ],
   "scripts": {
     "start": "node claude-all.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "prepublishOnly": "npm test"
   },
   "repository": {
     "type": "git",
