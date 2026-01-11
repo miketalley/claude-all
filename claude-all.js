@@ -16,11 +16,13 @@ const readline = require('readline');
 
 // Configuration
 const SCRIPT_DIR = __dirname;
-const PRD_FILE = path.join(SCRIPT_DIR, 'prd.json');
-const PROGRESS_FILE = path.join(SCRIPT_DIR, 'progress.txt');
-const ARCHIVE_DIR = path.join(SCRIPT_DIR, 'archive');
-const LAST_BRANCH_FILE = path.join(SCRIPT_DIR, '.last-branch');
-const PROMPT_FILE = path.join(SCRIPT_DIR, 'prompt.md');
+const WORKING_DIR = process.cwd(); // Where the user runs the command from (the project being worked on)
+const OUTPUT_DIR = path.join(WORKING_DIR, 'output');
+const PRD_FILE = path.join(OUTPUT_DIR, 'prd.json');
+const PROGRESS_FILE = path.join(OUTPUT_DIR, 'progress.txt');
+const ARCHIVE_DIR = path.join(OUTPUT_DIR, 'archive');
+const LAST_BRANCH_FILE = path.join(OUTPUT_DIR, '.last-branch');
+const PROMPT_FILE = path.join(SCRIPT_DIR, 'lib', 'prompt.md');
 const COMPLETION_SIGNAL = '<promise>COMPLETE</promise>';
 
 // ANSI color codes
@@ -34,10 +36,68 @@ const colors = {
   magenta: '\x1b[35m',
   cyan: '\x1b[36m',
   red: '\x1b[31m',
+  hideCursor: '\x1b[?25l',
+  showCursor: '\x1b[?25h',
+  clearLine: '\x1b[2K\r',
 };
 
 function log(message, color = '') {
   console.log(`${color}${message}${colors.reset}`);
+}
+
+// Loading spinner with changing messages
+class Spinner {
+  constructor(messages, color = colors.yellow) {
+    this.frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    this.messages = Array.isArray(messages) ? messages : [messages];
+    this.color = color;
+    this.frameIndex = 0;
+    this.messageIndex = 0;
+    this.interval = null;
+    this.messageInterval = null;
+  }
+
+  start() {
+    process.stdout.write(colors.hideCursor);
+    this.render();
+
+    // Rotate spinner frames every 80ms
+    this.interval = setInterval(() => {
+      this.frameIndex = (this.frameIndex + 1) % this.frames.length;
+      this.render();
+    }, 80);
+
+    // Rotate messages every 3 seconds if multiple messages
+    if (this.messages.length > 1) {
+      this.messageInterval = setInterval(() => {
+        this.messageIndex = (this.messageIndex + 1) % this.messages.length;
+      }, 3000);
+    }
+
+    return this;
+  }
+
+  render() {
+    const frame = this.frames[this.frameIndex];
+    const message = this.messages[this.messageIndex];
+    process.stdout.write(`${colors.clearLine}${this.color}${frame} ${message}${colors.reset}`);
+  }
+
+  stop(finalMessage = '', finalColor = colors.green) {
+    if (this.interval) clearInterval(this.interval);
+    if (this.messageInterval) clearInterval(this.messageInterval);
+    process.stdout.write(colors.clearLine);
+    process.stdout.write(colors.showCursor);
+    if (finalMessage) {
+      console.log(`${finalColor}✓ ${finalMessage}${colors.reset}`);
+    }
+  }
+
+  // Update the current message dynamically
+  update(message) {
+    this.messages = [message];
+    this.messageIndex = 0;
+  }
 }
 
 function logHeader(message) {
@@ -103,16 +163,28 @@ function readPrdFile(filePath) {
 }
 
 // Run claude command and stream output
-function runClaude(prompt, streamOutput = true) {
+// If spinner is provided, it will be stopped when first output arrives
+function runClaude(prompt, streamOutput = true, spinner = null) {
   return new Promise((resolve, reject) => {
     const claude = spawn('claude', ['--dangerously-skip-permissions'], {
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true,
+      cwd: WORKING_DIR, // Ensure Claude runs in the project directory
     });
 
     let output = '';
+    let spinnerStopped = false;
+
+    const stopSpinnerOnce = () => {
+      if (spinner && !spinnerStopped) {
+        spinnerStopped = true;
+        spinner.stop();
+        console.log('');
+      }
+    };
 
     claude.stdout.on('data', (data) => {
+      stopSpinnerOnce();
       const text = data.toString();
       output += text;
       if (streamOutput) {
@@ -121,6 +193,7 @@ function runClaude(prompt, streamOutput = true) {
     });
 
     claude.stderr.on('data', (data) => {
+      stopSpinnerOnce();
       const text = data.toString();
       output += text;
       if (streamOutput) {
@@ -132,10 +205,12 @@ function runClaude(prompt, streamOutput = true) {
     claude.stdin.end();
 
     claude.on('close', (code) => {
+      stopSpinnerOnce(); // Ensure spinner is stopped even if no output
       resolve({ output, code });
     });
 
     claude.on('error', (err) => {
+      stopSpinnerOnce();
       reject(err);
     });
   });
@@ -200,18 +275,54 @@ function initProgressFile() {
   }
 }
 
-// Generate prd.json from PRD text using the ralph skill
-async function generatePrdJson(prdText) {
-  log('\nGenerating prd.json from your project description...', colors.yellow);
+// Read the ralph skill instructions from the script directory
+function getRalphSkillInstructions() {
+  const skillPath = path.join(SCRIPT_DIR, '.claude', 'skills', 'ralph', 'SKILL.md');
+  if (fs.existsSync(skillPath)) {
+    return fs.readFileSync(skillPath, 'utf-8');
+  }
+  // Fallback minimal instructions if skill file not found
+  return `Convert the PRD to prd.json format. Save to output/prd.json in the current directory.`;
+}
 
-  const prompt = `/ralph
+// Generate prd.json from PRD text using embedded skill instructions
+async function generatePrdJson(prdText) {
+  console.log('');
+  const spinner = new Spinner('Converting PRD to prd.json format...', colors.yellow).start();
+
+  // Embed skill instructions directly to avoid using project's /ralph skill
+  const skillInstructions = getRalphSkillInstructions();
+  const prompt = `${skillInstructions}
+
+---
+
+## PRD to Convert
 
 ${prdText}`;
 
-  await runClaude(prompt, true);
+  // Spinner will be stopped automatically when Claude starts outputting
+  await runClaude(prompt, true, spinner);
 
-  // Check if prd.json was created
-  if (fs.existsSync(PRD_FILE)) {
+  // Check if prd.json was created (with retry for file system timing)
+  const checkFile = async (retries = 3, delay = 500) => {
+    for (let i = 0; i < retries; i++) {
+      if (fs.existsSync(PRD_FILE)) {
+        try {
+          // Verify it's valid JSON
+          JSON.parse(fs.readFileSync(PRD_FILE, 'utf-8'));
+          return true;
+        } catch {
+          // File exists but isn't valid JSON yet, wait and retry
+        }
+      }
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    return false;
+  };
+
+  if (await checkFile()) {
     log('\nprd.json generated successfully!', colors.green);
     return true;
   }
@@ -229,7 +340,11 @@ async function runAgentLoop(maxIterations) {
   for (let i = 1; i <= maxIterations; i++) {
     logHeader(`Ralph Iteration ${i} of ${maxIterations}`);
 
-    const { output } = await runClaude(promptContent, true);
+    // Show loading spinner until Claude starts outputting
+    const startSpinner = new Spinner(`Iteration ${i}/${maxIterations}: Reading prd.json and selecting next user story...`, colors.cyan).start();
+
+    // Spinner will be stopped automatically when Claude starts outputting
+    const { output } = await runClaude(promptContent, true, startSpinner);
 
     // Check for completion signal
     if (output.includes(COMPLETION_SIGNAL)) {
@@ -239,10 +354,10 @@ async function runAgentLoop(maxIterations) {
       return true;
     }
 
-    log(`\nIteration ${i} complete. Continuing...`, colors.dim);
-
     // Brief pause between iterations
+    const pauseSpinner = new Spinner(`Iteration ${i} complete. Preparing iteration ${i + 1}...`, colors.dim).start();
     await new Promise(resolve => setTimeout(resolve, 2000));
+    pauseSpinner.stop();
   }
 
   console.log('');
@@ -264,12 +379,24 @@ function hasPrdJson() {
   }
 }
 
+// Ensure output directory exists
+function ensureOutputDir() {
+  if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  }
+}
+
 // Main function
 async function main() {
   const { inputFile, maxIterations } = parseArgs();
 
+  // Ensure output directory exists
+  ensureOutputDir();
+
   log('Claude-All Agent System', colors.cyan + colors.bright);
   log('═'.repeat(55), colors.cyan);
+  log(`Working directory: ${WORKING_DIR}`, colors.dim);
+  log(`Output directory: ${OUTPUT_DIR}`, colors.dim);
 
   // Check if we need to generate prd.json or if we're resuming
   if (!hasPrdJson()) {

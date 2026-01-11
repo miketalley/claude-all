@@ -15,7 +15,8 @@ Convert Product Requirements Documents into the `prd.json` format used by the Ra
 2. If given a file path, read the file first
 3. Parse the PRD to extract user stories and project information
 4. Generate a properly formatted `prd.json` file
-5. Save to `prd.json` in the current directory
+5. Create the `output/` directory in the current working directory if it doesn't exist
+6. Save to `output/prd.json` in the current working directory (where the command was run from)
 
 **Important:** Do NOT implement any code. Just create the prd.json file.
 
@@ -226,4 +227,5 @@ Before saving prd.json:
 - [ ] All stories have `passes: false` and empty `notes`
 - [ ] Priority numbers are sequential (1, 2, 3...)
 - [ ] IDs are sequential (US-001, US-002, US-003...)
-- [ ] Saved to `prd.json` in current directory
+- [ ] Created `output/` directory in current working directory if needed
+- [ ] Saved to `output/prd.json` in current working directory

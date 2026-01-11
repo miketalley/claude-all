@@ -29,7 +29,7 @@ node claude-all.js my-project.md --max-iterations 20
 | `claude-all.js` | Main script |
 | `prd.json` | Generated PRD with user stories (created automatically) |
 | `progress.txt` | Log of completed work |
-| `prompt.md` | Instructions sent to Claude each iteration |
+| `lib/prompt.md` | Instructions sent to Claude each iteration |
 | `archive/` | Previous runs (auto-archived on branch change) |
 
 ## Requirements
