@@ -1,0 +1,32 @@
+{
+  "name": "claude-all",
+  "version": "1.0.0",
+  "description": "A node based system to launch multiple small Claude Code instances in order to build larger projects incrementally.",
+  "main": "claude-all.js",
+  "bin": {
+    "claude-all": "./claude-all.js"
+  },
+  "scripts": {
+    "start": "node claude-all.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miketalley/claude-all.git"
+  },
+  "keywords": [
+    "claude",
+    "code",
+    "node",
+    "agent",
+    "loop",
+    "prd",
+    "iteration"
+  ],
+  "author": "Mike Talley",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/miketalley/claude-all/issues"
+  },
+  "homepage": "https://github.com/miketalley/claude-all#readme"
+}
