@@ -1,11 +1,18 @@
 {
   "name": "claude-all",
   "version": "1.0.0",
-  "description": "A node based system to launch multiple small Claude Code instances in order to build larger projects incrementally.",
+  "description": "An autonomous agent system that uses Claude Code to incrementally build projects from a PRD.",
   "main": "claude-all.js",
   "bin": {
     "claude-all": "./claude-all.js"
   },
+  "files": [
+    "claude-all.js",
+    "lib/",
+    ".claude/",
+    "README.md",
+    "CLAUDE.md"
+  ],
   "scripts": {
     "start": "node claude-all.js",
     "test": "jest",
@@ -18,12 +25,12 @@
   },
   "keywords": [
     "claude",
-    "code",
-    "node",
+    "claude-code",
+    "ai",
     "agent",
-    "loop",
+    "autonomous",
     "prd",
-    "iteration"
+    "code-generation"
   ],
   "author": "Mike Talley",
   "license": "MIT",
@@ -31,6 +38,9 @@
     "url": "https://github.com/miketalley/claude-all/issues"
   },
   "homepage": "https://github.com/miketalley/claude-all#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "devDependencies": {
     "jest": "^30.2.0"
   }
