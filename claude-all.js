@@ -4,9 +4,14 @@
  * Claude-All - Long-running AI agent loop with PRD generation
  *
  * Usage:
- *   node claude-all.js <prd-file.md>     - Read PRD from file
- *   node claude-all.js                   - Prompt for PRD text interactively
+ *   node claude-all.js                     - Resume existing PRD or prompt for new one
+ *   node claude-all.js <prd-file.md>       - Generate PRD from markdown file
  *   node claude-all.js --max-iterations N  - Set max iterations (default: 10)
+ *
+ * Behavior when run without arguments:
+ *   1. Checks for existing output/prd.json with incomplete stories
+ *   2. If found, resumes working on remaining stories
+ *   3. If not found, prompts for project description to generate new PRD
  */
 
 const { spawn } = require('child_process');
@@ -379,6 +384,30 @@ function hasPrdJson() {
   }
 }
 
+// Check if prd.json has incomplete user stories (passes: false)
+function hasIncompleteStories() {
+  if (!hasPrdJson()) {
+    return { exists: false, incomplete: false, total: 0, remaining: 0, projectName: null };
+  }
+
+  try {
+    const prd = JSON.parse(fs.readFileSync(PRD_FILE, 'utf-8'));
+    const stories = prd.userStories || [];
+    const incompleteStories = stories.filter(s => s.passes === false);
+
+    return {
+      exists: true,
+      incomplete: incompleteStories.length > 0,
+      total: stories.length,
+      remaining: incompleteStories.length,
+      completed: stories.length - incompleteStories.length,
+      projectName: prd.project || prd.branchName || 'Unknown'
+    };
+  } catch {
+    return { exists: false, incomplete: false, total: 0, remaining: 0, projectName: null };
+  }
+}
+
 // Ensure output directory exists
 function ensureOutputDir() {
   if (!fs.existsSync(OUTPUT_DIR)) {
@@ -398,21 +427,10 @@ async function main() {
   log(`Working directory: ${WORKING_DIR}`, colors.dim);
   log(`Output directory: ${OUTPUT_DIR}`, colors.dim);
 
-  // Check if we need to generate prd.json or if we're resuming
-  if (!hasPrdJson()) {
-    let prdText;
-
-    if (inputFile) {
-      log(`\nReading PRD from: ${inputFile}`, colors.blue);
-      prdText = readPrdFile(inputFile);
-    } else {
-      prdText = await promptForInput();
-
-      if (!prdText) {
-        log('No input provided. Exiting.', colors.red);
-        process.exit(1);
-      }
-    }
+  // If an input file was specified, use that to generate a new PRD
+  if (inputFile) {
+    log(`\nReading PRD from: ${inputFile}`, colors.blue);
+    const prdText = readPrdFile(inputFile);
 
     // Generate prd.json from the input
     const success = await generatePrdJson(prdText);
@@ -421,7 +439,43 @@ async function main() {
       process.exit(1);
     }
   } else {
-    log('\nExisting prd.json found. Resuming agent loop...', colors.blue);
+    // No input file specified - check for existing incomplete PRD
+    const status = hasIncompleteStories();
+
+    if (status.exists && status.incomplete) {
+      // Found existing PRD with incomplete stories - resume
+      log(`\nFound existing PRD: ${status.projectName}`, colors.blue);
+      log(`Progress: ${status.completed}/${status.total} stories complete, ${status.remaining} remaining`, colors.blue);
+      log('Resuming agent loop...', colors.blue);
+    } else if (status.exists && !status.incomplete) {
+      // PRD exists but all stories are complete
+      log('\nExisting PRD found but all stories are already complete!', colors.green);
+      log(`Project: ${status.projectName} (${status.total}/${status.total} stories complete)`, colors.dim);
+      log('\nTo start a new project:', colors.yellow);
+      log('  • Run with a .md file: node claude-all.js your-prd.md', colors.dim);
+      log('  • Or delete output/prd.json and run again to enter text manually', colors.dim);
+      process.exit(0);
+    } else {
+      // No existing PRD - prompt for input
+      log('\nNo existing PRD with incomplete stories found.', colors.yellow);
+      log('You can:', colors.dim);
+      log('  • Enter a project description below', colors.dim);
+      log('  • Or run with a .md file: node claude-all.js your-prd.md', colors.dim);
+
+      const prdText = await promptForInput();
+
+      if (!prdText) {
+        log('No input provided. Exiting.', colors.red);
+        process.exit(1);
+      }
+
+      // Generate prd.json from the input
+      const success = await generatePrdJson(prdText);
+      if (!success) {
+        log('Failed to generate prd.json. Please try again.', colors.red);
+        process.exit(1);
+      }
+    }
   }
 
   // Archive previous run if needed
