@@ -108,6 +108,42 @@ The agent will:
 4. Update `output/progress.txt` with learnings
 5. Complete when all stories pass
 
+## Library Usage
+
+Claude-All can also be used as a library in your Node.js projects:
+
+```bash
+npm install github:miketalley/claude-all
+```
+
+```javascript
+const {
+  createConfig,
+  runClaude,
+  generatePrdJson,
+  runAgentLoop,
+  hasIncompleteStories,
+} = require('claude-all');
+
+// Create config for a working directory
+const config = createConfig({ workingDir: '/path/to/project' });
+
+// Check PRD status
+const status = hasIncompleteStories(config.PRD_FILE);
+console.log(`${status.remaining} stories remaining`);
+
+// Generate PRD from text
+await generatePrdJson('Build a todo app', config);
+
+// Run the agent loop
+const success = await runAgentLoop(config, {
+  maxIterations: 10,
+  onIteration: (i, max) => console.log(`Iteration ${i}/${max}`),
+});
+```
+
+See [CLAUDE.md](./CLAUDE.md) for full API documentation.
+
 ## Development
 
 ```bash

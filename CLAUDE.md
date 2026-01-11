@@ -26,8 +26,10 @@ When run without specifying a .md file:
 
 ```
 claude-all/
-├── claude-all.js              # Main script (entry point)
+├── claude-all.js              # CLI entry point
 ├── lib/
+│   ├── index.js               # Main library export entry point
+│   ├── core.js                # Core functionality (runClaude, generatePrdJson, etc.)
 │   ├── config.js              # Configuration module (paths, constants)
 │   ├── prd-utils.js           # PRD utility functions (validation, file ops)
 │   └── prompt.md              # Instructions sent to Claude each iteration
@@ -36,6 +38,7 @@ claude-all/
 │   └── prd/SKILL.md           # Generates full PRD documents
 ├── __tests__/
 │   ├── fixtures/              # Test data files
+│   ├── core.test.js           # Tests for library exports
 │   ├── config.test.js
 │   ├── integration.test.js
 │   └── prd-utils.test.js
@@ -44,6 +47,69 @@ claude-all/
     ├── progress.txt           # Log of completed work
     └── archive/               # Previous runs (auto-archived)
 ```
+
+## Library Usage (Programmatic API)
+
+Claude-All can be imported as a library for programmatic use:
+
+```javascript
+const {
+  createConfig,
+  runClaude,
+  generatePrdJson,
+  runAgentLoop,
+  hasPrdJson,
+  hasIncompleteStories,
+  ensureOutputDir,
+  initProgressFile,
+  Spinner,
+  colors,
+} = require('claude-all');
+
+// Create config for a working directory
+const config = createConfig({ workingDir: '/path/to/project' });
+
+// Check PRD status
+const status = hasIncompleteStories(config.PRD_FILE);
+if (status.incomplete) {
+  console.log(`${status.remaining} stories remaining`);
+}
+
+// Generate PRD from text
+await generatePrdJson('Build a todo app', config, { silent: false });
+
+// Run agent loop with callbacks
+await runAgentLoop(config, {
+  maxIterations: 10,
+  silent: false,
+  onIteration: (i, max) => console.log(`Starting iteration ${i}/${max}`),
+  onComplete: (iteration) => console.log(`Completed at iteration ${iteration}`),
+});
+
+// Run Claude directly with a prompt
+const { output, code } = await runClaude('Your prompt here', {
+  streamOutput: true,
+  cwd: config.WORKING_DIR,
+});
+```
+
+### Available Exports
+
+| Export | Type | Description |
+|--------|------|-------------|
+| `createConfig(options)` | Function | Create configuration object |
+| `runClaude(prompt, options)` | Function | Run Claude with a prompt |
+| `generatePrdJson(text, config, options)` | Function | Generate PRD from text |
+| `runAgentLoop(config, options)` | Function | Run the main agent loop |
+| `hasPrdJson(prdFile)` | Function | Check if valid PRD exists |
+| `hasIncompleteStories(prdFile)` | Function | Get PRD completion status |
+| `ensureOutputDir(dir)` | Function | Create output directory |
+| `initProgressFile(file)` | Function | Initialize progress file |
+| `archivePreviousRun(config)` | Function | Archive previous run |
+| `trackCurrentBranch(config)` | Function | Track current branch |
+| `Spinner` | Class | Braille loading spinner |
+| `colors` | Object | ANSI color codes |
+| `COMPLETION_SIGNAL` | String | Signal for task completion |
 
 ## Key Functions in claude-all.js
 
@@ -125,7 +191,7 @@ Located at top of claude-all.js:
 ## Testing
 
 Run tests: `npm test`
-- 48 tests covering config, PRD utilities, and integration scenarios
+- 73 tests covering core exports, config, PRD utilities, and integration scenarios
 - Tests use temp directories to avoid affecting real files
 
 ## Usage Examples

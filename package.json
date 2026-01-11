@@ -1,10 +1,16 @@
 {
   "name": "claude-all",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "An autonomous agent system that uses Claude Code to incrementally build projects from a PRD.",
-  "main": "claude-all.js",
+  "main": "lib/index.js",
   "bin": {
     "claude-all": "./claude-all.js"
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./core": "./lib/core.js",
+    "./config": "./lib/config.js",
+    "./prd-utils": "./lib/prd-utils.js"
   },
   "files": [
     "claude-all.js",
