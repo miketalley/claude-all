@@ -22,15 +22,23 @@ node claude-all.js my-project.md --max-iterations 20
 3. **Agent Loop**: Iterates through user stories, implementing one per iteration
 4. **Completion**: Stops when all stories pass or max iterations reached
 
-## Files
+## Project Structure
 
-| File | Purpose |
-|------|---------|
-| `claude-all.js` | Main script |
-| `prd.json` | Generated PRD with user stories (created automatically) |
-| `progress.txt` | Log of completed work |
-| `lib/prompt.md` | Instructions sent to Claude each iteration |
-| `archive/` | Previous runs (auto-archived on branch change) |
+```
+claude-all/
+├── claude-all.js              # Main script
+├── lib/
+│   ├── config.js              # Configuration module
+│   ├── prd-utils.js           # PRD utility functions
+│   └── prompt.md              # Instructions sent to Claude each iteration
+├── .claude/skills/
+│   ├── ralph/SKILL.md         # Skill for converting PRD to prd.json
+│   └── prd/SKILL.md           # Skill for generating PRD documents
+└── output/                    # Created at runtime in your project directory
+    ├── prd.json               # Generated PRD with user stories
+    ├── progress.txt           # Log of completed work
+    └── archive/               # Previous runs (auto-archived on branch change)
+```
 
 ## Requirements
 
@@ -46,7 +54,7 @@ node claude-all.js my-project.md --max-iterations 20
 
 ## Resuming
 
-If `prd.json` exists, the script resumes from where it left off. To start fresh, delete `prd.json` and `progress.txt`.
+If `output/prd.json` exists, the script resumes from where it left off. To start fresh, delete the `output/` directory or just `output/prd.json` and `output/progress.txt`.
 
 ## Skills
 
